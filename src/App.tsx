@@ -11,7 +11,8 @@ type Phase = 'setup' | 'match'
 const DEFAULT_CONFIG: MatchConfig = {
   whiteName: 'Jugador Blanco',
   yellowName: 'Jugador Amarillo',
-  targetScore: 40,
+  tablePrice: 100,
+  shotClock: 40,
   starter: 'white',
 }
 

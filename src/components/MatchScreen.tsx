@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { UseMatchReturn } from '../hooks/useMatch'
+import { useShotClock } from '../hooks/useShotClock'
 import type { PlayerId } from '../types'
 import { PlayerPanel } from './PlayerPanel'
+import { ShotClock } from './ShotClock'
 
 interface MatchScreenProps {
   match: UseMatchReturn
@@ -9,9 +11,19 @@ interface MatchScreenProps {
 }
 
 export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
-  const { state, dispatch, canUndo, average, currentRun } = match
-  const [historySide, setHistorySide] = useState<PlayerId | null>(null)
+  const { state, dispatch, canUndo } = match
   const [confirmEnd, setConfirmEnd] = useState(false)
+
+  const onExpire = useCallback(() => {
+    dispatch({ type: 'VOLADA_MALA' })
+  }, [dispatch])
+
+  const clock = useShotClock({
+    seconds: state.config.shotClock,
+    turnKey: state.turnKey,
+    enabled: !state.finished,
+    onExpire,
+  })
 
   const winnerName =
     state.winner === 'white'
@@ -20,9 +32,9 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
         ? state.yellow.name
         : null
 
-  const handleDigit = (player: PlayerId, digit: string) => {
+  const handleAdd = (player: PlayerId, points: number) => {
     if (state.activePlayer !== player || state.finished) return
-    dispatch({ type: 'DIGIT', digit })
+    dispatch({ type: 'ADD_POINTS', points })
   }
 
   const handleEndTurn = (player: PlayerId) => {
@@ -82,16 +94,8 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
           data={state.white}
           active={state.activePlayer === 'white'}
           finished={state.finished}
-          inputBuffer={state.inputBuffer}
-          average={average(state.white)}
-          showHistory={historySide === 'white'}
-          onDigit={(d) => handleDigit('white', d)}
-          onClear={() => dispatch({ type: 'CLEAR' })}
-          onAdjust={(delta) => dispatch({ type: 'ADJUST', delta })}
+          onAdd={(points) => handleAdd('white', points)}
           onEndTurn={() => handleEndTurn('white')}
-          onToggleHistory={() =>
-            setHistorySide((side) => (side === 'white' ? null : 'white'))
-          }
           onRename={(name) => dispatch({ type: 'RENAME', player: 'white', name })}
         />
 
@@ -107,14 +111,17 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
             <strong>{state.entrada}</strong>
           </div>
 
-          <div className="match__target" title="Puntos objetivo">
-            <span>OBJETIVO</span>
-            <strong>{state.config.targetScore}</strong>
-          </div>
+          <ShotClock
+            total={state.config.shotClock}
+            left={clock.left}
+            running={clock.running}
+            voladaMala={state.voladaMala || clock.expired}
+            onRestart={() => dispatch({ type: 'CLEAR_VOLADA_MALA' })}
+          />
 
-          <div className="match__run-center">
-            <span>EN MESA</span>
-            <strong>{state.finished ? '—' : currentRun}</strong>
+          <div className="match__mesa" title="Precio de mesa">
+            <span>MESA</span>
+            <strong>${state.config.tablePrice}</strong>
           </div>
 
           <button
@@ -141,16 +148,8 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
           data={state.yellow}
           active={state.activePlayer === 'yellow'}
           finished={state.finished}
-          inputBuffer={state.inputBuffer}
-          average={average(state.yellow)}
-          showHistory={historySide === 'yellow'}
-          onDigit={(d) => handleDigit('yellow', d)}
-          onClear={() => dispatch({ type: 'CLEAR' })}
-          onAdjust={(delta) => dispatch({ type: 'ADJUST', delta })}
+          onAdd={(points) => handleAdd('yellow', points)}
           onEndTurn={() => handleEndTurn('yellow')}
-          onToggleHistory={() =>
-            setHistorySide((side) => (side === 'yellow' ? null : 'yellow'))
-          }
           onRename={(name) =>
             dispatch({ type: 'RENAME', player: 'yellow', name })
           }
@@ -170,6 +169,7 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
                 {state.yellow.name}: {state.yellow.score}
               </span>
             </div>
+            <p className="match__overlay-mesa">Mesa ${state.config.tablePrice}</p>
             <div className="match__overlay-actions">
               <button type="button" onClick={onNewMatch}>
                 Nueva partida

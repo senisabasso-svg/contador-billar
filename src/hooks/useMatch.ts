@@ -1,33 +1,35 @@
 import { useCallback, useReducer } from 'react'
 import type { MatchAction, MatchConfig, MatchSnapshot, PlayerId, PlayerState } from '../types'
-
-const MAX_BUFFER = 3
+import { SHOT_CLOCK_SECONDS } from '../types'
 
 function createPlayer(name: string): PlayerState {
   return {
     name,
     score: 0,
     sets: 0,
-    innings: [],
+    plays: [],
     maxSeries: 0,
-    lastInning: null,
+    lastPlay: null,
   }
 }
 
 export function createMatch(config: MatchConfig): MatchSnapshot {
+  const shotClock = Math.max(5, config.shotClock || SHOT_CLOCK_SECONDS)
   return {
     white: createPlayer(config.whiteName.trim() || 'Jugador Blanco'),
     yellow: createPlayer(config.yellowName.trim() || 'Jugador Amarillo'),
     activePlayer: config.starter,
     entrada: 1,
-    inputBuffer: '',
     finished: false,
     winner: null,
+    voladaMala: false,
+    turnKey: 0,
     config: {
       ...config,
       whiteName: config.whiteName.trim() || 'Jugador Blanco',
       yellowName: config.yellowName.trim() || 'Jugador Amarillo',
-      targetScore: Math.max(1, config.targetScore),
+      tablePrice: config.tablePrice,
+      shotClock,
     },
   }
 }
@@ -36,114 +38,69 @@ function otherPlayer(player: PlayerId): PlayerId {
   return player === 'white' ? 'yellow' : 'white'
 }
 
-function parseBuffer(buffer: string): number {
-  if (!buffer) return 0
-  const value = Number.parseInt(buffer, 10)
-  return Number.isFinite(value) ? value : 0
-}
+function addPoints(state: MatchSnapshot, points: number): MatchSnapshot {
+  if (state.finished || points === 0) return state
 
-function average(player: PlayerState): string {
-  if (player.innings.length === 0) return '0.000'
-  const avg = player.score / player.innings.length
-  return avg.toFixed(3)
-}
-
-function checkWinner(
-  white: PlayerState,
-  yellow: PlayerState,
-  target: number,
-): PlayerId | null {
-  if (white.score >= target && yellow.score >= target) {
-    return white.score >= yellow.score ? 'white' : 'yellow'
+  const active = state.activePlayer
+  const player = { ...state[active] }
+  player.score = Math.max(0, player.score + points)
+  player.plays = [...player.plays, points]
+  player.lastPlay = points
+  if (points > 0) {
+    player.maxSeries = Math.max(player.maxSeries, points)
   }
-  if (white.score >= target) return 'white'
-  if (yellow.score >= target) return 'yellow'
-  return null
+
+  return {
+    ...state,
+    [active]: player,
+    voladaMala: false,
+  }
 }
 
 function endTurn(state: MatchSnapshot): MatchSnapshot {
   if (state.finished) return state
 
-  const points = parseBuffer(state.inputBuffer)
-  const active = state.activePlayer
-  const player = { ...state[active] }
-  const nextScore = player.score + points
+  const nextPlayer = otherPlayer(state.activePlayer)
+  const entrada =
+    nextPlayer === state.config.starter ? state.entrada + 1 : state.entrada
 
-  player.score = nextScore
-  player.innings = [...player.innings, points]
-  player.lastInning = points
-  player.maxSeries = Math.max(player.maxSeries, points)
-
-  const next: MatchSnapshot = {
+  return {
     ...state,
-    [active]: player,
-    inputBuffer: '',
-    activePlayer: otherPlayer(active),
+    activePlayer: nextPlayer,
+    entrada,
+    voladaMala: false,
+    turnKey: state.turnKey + 1,
   }
-
-  // Si el que acaba de jugar ya tenía la misma cantidad de entradas que el rival,
-  // ambos cerraron la entrada actual → avanzar contador.
-  const justPlayed = next[active]
-  const opponent = next[otherPlayer(active)]
-  if (justPlayed.innings.length > opponent.innings.length) {
-    // El primero de la pareja de esa entrada: se queda en la misma entrada
-  } else if (justPlayed.innings.length === opponent.innings.length) {
-    next.entrada = state.entrada + 1
-  }
-
-  const winner = checkWinner(next.white, next.yellow, state.config.targetScore)
-  if (winner) {
-    next.finished = true
-    next.winner = winner
-    next[winner] = {
-      ...next[winner],
-      sets: next[winner].sets + 1,
-    }
-  }
-
-  return next
 }
 
 function matchReducer(state: MatchSnapshot, action: MatchAction): MatchSnapshot {
   switch (action.type) {
-    case 'DIGIT': {
-      if (state.finished) return state
-      if (state.inputBuffer.length >= MAX_BUFFER) return state
-      if (state.inputBuffer === '0') {
-        return { ...state, inputBuffer: action.digit }
-      }
-      return { ...state, inputBuffer: state.inputBuffer + action.digit }
-    }
-    case 'CLEAR':
-      return { ...state, inputBuffer: '' }
-    case 'BACKSPACE':
-      return { ...state, inputBuffer: state.inputBuffer.slice(0, -1) }
-    case 'ADJUST': {
-      if (state.finished) return state
-      const current = parseBuffer(state.inputBuffer)
-      const next = Math.max(0, Math.min(999, current + action.delta))
-      return { ...state, inputBuffer: String(next) }
-    }
+    case 'ADD_POINTS':
+      return addPoints(state, action.points)
     case 'END_TURN':
       return endTurn(state)
-    case 'ADD_SET': {
+    case 'VOLADA_MALA':
       if (state.finished) return state
-      return {
-        ...state,
-        [action.player]: {
-          ...state[action.player],
-          sets: state[action.player].sets + 1,
-        },
-      }
-    }
+      return { ...state, voladaMala: true }
+    case 'CLEAR_VOLADA_MALA':
+      return { ...state, voladaMala: false, turnKey: state.turnKey + 1 }
     case 'FINISH': {
       if (state.finished) return state
-      let winner = state.winner
-      if (!winner) {
-        if (state.white.score > state.yellow.score) winner = 'white'
-        else if (state.yellow.score > state.white.score) winner = 'yellow'
+      let winner: PlayerId | null = null
+      if (state.white.score > state.yellow.score) winner = 'white'
+      else if (state.yellow.score > state.white.score) winner = 'yellow'
+      const next: MatchSnapshot = {
+        ...state,
+        finished: true,
+        winner,
       }
-      return { ...state, finished: true, winner }
+      if (winner) {
+        next[winner] = {
+          ...next[winner],
+          sets: next[winner].sets + 1,
+        }
+      }
+      return next
     }
     case 'RENAME':
       return {
@@ -154,7 +111,6 @@ function matchReducer(state: MatchSnapshot, action: MatchAction): MatchSnapshot 
         },
       }
     case 'UNDO':
-      // Handled outside with history stack
       return state
     default:
       return state
@@ -193,10 +149,11 @@ export function useMatch(initialConfig: MatchConfig) {
       const next = matchReducer(state, action)
       if (next === state) return
 
-      // Solo las acciones que cierran entrada / partida entran al undo.
-      // Digitos, clear y renombres solo actualizan el estado actual.
       const commitAction =
-        action.type === 'END_TURN' || action.type === 'FINISH' || action.type === 'ADD_SET'
+        action.type === 'ADD_POINTS' ||
+        action.type === 'END_TURN' ||
+        action.type === 'FINISH' ||
+        action.type === 'VOLADA_MALA'
 
       setHistory({
         type: commitAction ? 'PUSH' : 'REPLACE',
@@ -215,8 +172,6 @@ export function useMatch(initialConfig: MatchConfig) {
     dispatch,
     reset,
     canUndo: history.length > 1,
-    average,
-    currentRun: parseBuffer(state.inputBuffer),
   }
 }
 

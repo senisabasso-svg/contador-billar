@@ -1,16 +1,15 @@
 import { useState } from 'react'
 import type { MatchConfig, PlayerId } from '../types'
+import { SHOT_CLOCK_SECONDS, TABLE_PRICES } from '../types'
 
 interface SetupScreenProps {
   onStart: (config: MatchConfig) => void
 }
 
-const TARGET_PRESETS = [25, 30, 40, 50, 60, 100]
-
 export function SetupScreen({ onStart }: SetupScreenProps) {
   const [whiteName, setWhiteName] = useState('')
   const [yellowName, setYellowName] = useState('')
-  const [targetScore, setTargetScore] = useState(40)
+  const [tablePrice, setTablePrice] = useState<number>(TABLE_PRICES[2])
   const [starter, setStarter] = useState<PlayerId>('white')
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -18,7 +17,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     onStart({
       whiteName: whiteName || 'Jugador Blanco',
       yellowName: yellowName || 'Jugador Amarillo',
-      targetScore,
+      tablePrice,
+      shotClock: SHOT_CLOCK_SECONDS,
       starter,
     })
   }
@@ -29,8 +29,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       <form className="setup__card" onSubmit={handleSubmit}>
         <h1 className="setup__title">Nueva partida</h1>
         <p className="setup__subtitle">
-          Configurá los jugadores y el objetivo. Los datos viven en memoria hasta
-          que cierres o refresques la pestaña.
+          Configurá jugadores y precio de mesa. El tiempo de volada es de{' '}
+          {SHOT_CLOCK_SECONDS} segundos.
         </p>
 
         <div className="setup__grid">
@@ -58,35 +58,23 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </div>
 
         <fieldset className="setup__fieldset">
-          <legend>Puntos objetivo</legend>
+          <legend>Precio de mesa</legend>
           <div className="setup__presets">
-            {TARGET_PRESETS.map((value) => (
+            {TABLE_PRICES.map((value) => (
               <button
                 key={value}
                 type="button"
                 className={
-                  targetScore === value
+                  tablePrice === value
                     ? 'setup__chip setup__chip--active'
                     : 'setup__chip'
                 }
-                onClick={() => setTargetScore(value)}
+                onClick={() => setTablePrice(value)}
               >
-                {value}
+                ${value}
               </button>
             ))}
           </div>
-          <label className="setup__field setup__field--inline">
-            <span>Personalizado</span>
-            <input
-              type="number"
-              min={1}
-              max={999}
-              value={targetScore}
-              onChange={(e) =>
-                setTargetScore(Math.max(1, Number(e.target.value) || 1))
-              }
-            />
-          </label>
         </fieldset>
 
         <fieldset className="setup__fieldset">
