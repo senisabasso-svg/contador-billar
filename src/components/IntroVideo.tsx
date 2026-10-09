@@ -18,9 +18,7 @@ interface IntroVideoProps {
 
 export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const shellRef = useRef<HTMLDivElement>(null)
   const [phase, setPhase] = useState<Phase>('fullscreen')
-  const [muted, setMuted] = useState(true)
   const [dock, setDock] = useState<DockRect | null>(null)
 
   const measureDock = () => {
@@ -40,12 +38,23 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
     if (!video) return
 
     video.muted = true
+    video.volume = 0
     const playPromise = video.play()
     if (playPromise) {
       playPromise.catch(() => {
         // Autoplay bloqueado: se reintenta al primer gesto del usuario
       })
     }
+
+    const retryPlay = () => {
+      const current = videoRef.current
+      if (!current) return
+      current.muted = true
+      current.volume = 0
+      void current.play()
+    }
+
+    window.addEventListener('pointerdown', retryPlay, { once: true })
 
     const shrinkTimer = window.setTimeout(() => {
       setDock(measureDock())
@@ -60,6 +69,7 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
     return () => {
       window.clearTimeout(shrinkTimer)
       window.clearTimeout(dockTimer)
+      window.removeEventListener('pointerdown', retryPlay)
     }
   }, [dockSelector])
 
@@ -74,9 +84,7 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
 
     const el = document.querySelector(dockSelector)
     const observer =
-      el && 'ResizeObserver' in window
-        ? new ResizeObserver(sync)
-        : null
+      el && 'ResizeObserver' in window ? new ResizeObserver(sync) : null
     if (el && observer) observer.observe(el)
 
     return () => {
@@ -85,36 +93,6 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
       observer?.disconnect()
     }
   }, [phase, dockSelector])
-
-  useEffect(() => {
-    const unlock = () => {
-      const video = videoRef.current
-      if (!video) return
-      video.muted = false
-      setMuted(false)
-      void video.play()
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('keydown', unlock)
-    }
-
-    window.addEventListener('pointerdown', unlock, { once: true })
-    window.addEventListener('keydown', unlock, { once: true })
-
-    return () => {
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('keydown', unlock)
-    }
-  }, [])
-
-  const toggleMute = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    const video = videoRef.current
-    if (!video) return
-    const next = !video.muted
-    video.muted = next
-    setMuted(next)
-    void video.play()
-  }
 
   const style =
     phase !== 'fullscreen' && dock
@@ -128,7 +106,6 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
 
   return (
     <div
-      ref={shellRef}
       className={`intro-video intro-video--${phase}`}
       style={style}
       aria-hidden={phase === 'fullscreen' ? true : undefined}
@@ -143,17 +120,6 @@ export function IntroVideo({ dockSelector = '#video-dock' }: IntroVideoProps) {
         playsInline
         preload="auto"
       />
-      {phase !== 'fullscreen' && (
-        <button
-          type="button"
-          className="intro-video__mute"
-          onClick={toggleMute}
-          aria-label={muted ? 'Activar sonido' : 'Silenciar'}
-          title={muted ? 'Activar sonido' : 'Silenciar'}
-        >
-          {muted ? 'Sin audio' : 'Audio'}
-        </button>
-      )}
     </div>
   )
 }
