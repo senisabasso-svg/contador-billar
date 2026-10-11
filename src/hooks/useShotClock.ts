@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface UseShotClockOptions {
   seconds: number
@@ -14,38 +14,35 @@ export function useShotClock({
   onExpire,
 }: UseShotClockOptions) {
   const [left, setLeft] = useState(seconds)
-  const [running, setRunning] = useState(enabled)
+  const [running, setRunning] = useState(false)
   const [expired, setExpired] = useState(false)
   const onExpireRef = useRef(onExpire)
   const alarmPlayed = useRef(false)
 
   onExpireRef.current = onExpire
 
-  const restart = () => {
+  // Al cambiar turno o duración: dejar listo, sin correr hasta "Iniciar"
+  useEffect(() => {
     alarmPlayed.current = false
     setExpired(false)
     setLeft(seconds)
-    setRunning(true)
-  }
+    setRunning(false)
+  }, [turnKey, seconds])
 
   useEffect(() => {
     if (!enabled) {
       setRunning(false)
-      return
     }
-    alarmPlayed.current = false
-    setExpired(false)
-    setLeft(seconds)
-    setRunning(true)
-  }, [turnKey, seconds, enabled])
+  }, [enabled])
 
   useEffect(() => {
-    if (!running || !enabled) return
+    if (!running || !enabled || expired) return
 
     const startedAt = Date.now()
+    const initialLeft = left
     const id = window.setInterval(() => {
       const elapsed = (Date.now() - startedAt) / 1000
-      const next = Math.max(0, seconds - elapsed)
+      const next = Math.max(0, initialLeft - elapsed)
       setLeft(next)
       if (next <= 0) {
         window.clearInterval(id)
@@ -60,12 +57,30 @@ export function useShotClock({
     }, 100)
 
     return () => window.clearInterval(id)
-  }, [running, enabled, seconds, turnKey])
+    // Solo arranca/reinicia el interval cuando running cambia a true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, enabled, turnKey])
+
+  const start = useCallback(() => {
+    if (!enabled) return
+    alarmPlayed.current = false
+    setExpired(false)
+    setLeft((current) => (current <= 0 ? seconds : current))
+    setRunning(true)
+  }, [enabled, seconds])
+
+  const restart = useCallback(() => {
+    alarmPlayed.current = false
+    setExpired(false)
+    setLeft(seconds)
+    setRunning(false)
+  }, [seconds])
 
   return {
     left,
     running,
     expired,
+    start,
     restart,
   }
 }

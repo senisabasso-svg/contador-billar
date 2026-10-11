@@ -79,11 +79,27 @@ function matchReducer(state: MatchSnapshot, action: MatchAction): MatchSnapshot 
       return addPoints(state, action.points)
     case 'END_TURN':
       return endTurn(state)
+    case 'COMMIT_AND_END_TURN': {
+      let next = state
+      if (action.points !== null && action.points !== 0) {
+        next = addPoints(next, action.points)
+      }
+      return endTurn(next)
+    }
     case 'VOLADA_MALA':
       if (state.finished) return state
       return { ...state, voladaMala: true }
     case 'CLEAR_VOLADA_MALA':
-      return { ...state, voladaMala: false, turnKey: state.turnKey + 1 }
+      return { ...state, voladaMala: false }
+    case 'SET_SHOT_CLOCK': {
+      const seconds = Math.max(5, Math.min(999, Math.round(action.seconds) || SHOT_CLOCK_SECONDS))
+      return {
+        ...state,
+        config: { ...state.config, shotClock: seconds },
+        turnKey: state.turnKey + 1,
+        voladaMala: false,
+      }
+    }
     case 'FINISH': {
       if (state.finished) return state
       let winner: PlayerId | null = null
@@ -152,6 +168,7 @@ export function useMatch(initialConfig: MatchConfig) {
       const commitAction =
         action.type === 'ADD_POINTS' ||
         action.type === 'END_TURN' ||
+        action.type === 'COMMIT_AND_END_TURN' ||
         action.type === 'FINISH' ||
         action.type === 'VOLADA_MALA'
 

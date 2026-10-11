@@ -513,11 +513,33 @@
   font-family: var(--font-digits);
 }
 
-/* ——— Point pad 2–16 ——— */
+/* ——— Point pad 1–9 ——— */
 .pointpad {
   margin-top: auto;
   display: grid;
   gap: 0.5rem;
+}
+
+.pointpad__display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pointpad__display strong {
+  font-family: var(--font-digits);
+  font-size: 1.45rem;
+  color: var(--ink);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .pointpad__toolbar {
@@ -554,12 +576,13 @@
 }
 
 .pointpad__te {
-  min-width: 4.2rem;
+  min-width: 5rem;
   min-height: 2.6rem;
   background: rgba(31, 111, 235, 0.1);
   border-color: rgba(31, 111, 235, 0.55);
   color: var(--active);
-  font-size: 1.05rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
 }
 
 .pointpad__grid {
@@ -568,9 +591,25 @@
   gap: 0.35rem;
 }
 
+.pointpad__grid--dial {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .pointpad__key {
   min-height: 2.75rem;
   font-size: 1.05rem;
+}
+
+.pointpad__key--add {
+  background: rgba(31, 111, 235, 0.1);
+  border-color: rgba(31, 111, 235, 0.45);
+  color: var(--active);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+}
+
+.pointpad__key--clear {
+  font-family: var(--font-ui);
 }
 
 .pointpad__key:hover:not(:disabled),
@@ -778,6 +817,34 @@
   color: var(--ink);
 }
 
+.shot-clock__duration {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shot-clock__duration input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  font-family: var(--font-digits);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.shot-clock__duration input:disabled {
+  opacity: 0.55;
+}
+
 .shot-clock__bar {
   width: 100%;
   height: 0.7rem;
@@ -792,6 +859,11 @@
   transform-origin: left center;
   background: linear-gradient(90deg, #22c55e, #4ade80);
   transition: transform 0.1s linear, background 0.2s ease;
+}
+
+.shot-clock.is-waiting {
+  border-color: rgba(31, 111, 235, 0.55);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.08);
 }
 
 .shot-clock.is-warning {
@@ -821,14 +893,28 @@
   letter-spacing: 0.06em;
 }
 
+.shot-clock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.shot-clock__start,
 .shot-clock__restart {
   border: 1px solid rgba(31, 111, 235, 0.35);
   background: #ffffff;
   color: var(--active);
   border-radius: 0.55rem;
-  padding: 0.4rem 0.7rem;
+  padding: 0.45rem 0.75rem;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.shot-clock__start {
+  background: linear-gradient(135deg, #4d8fff, #1f6feb);
+  border-color: transparent;
+  color: #ffffff;
 }
 
 .match__overlay-mesa {
@@ -992,10 +1078,6 @@
 
   .player__score {
     font-size: clamp(3.4rem, 16vw, 5rem);
-  }
-
-  .pointpad__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .pointpad__key {

@@ -37,9 +37,9 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
     dispatch({ type: 'ADD_POINTS', points })
   }
 
-  const handleEndTurn = (player: PlayerId) => {
+  const handlePassTurn = (player: PlayerId, pendingPoints: number | null) => {
     if (state.activePlayer !== player || state.finished) return
-    dispatch({ type: 'END_TURN' })
+    dispatch({ type: 'COMMIT_AND_END_TURN', points: pendingPoints })
   }
 
   const handleFinalize = () => {
@@ -95,7 +95,7 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
           active={state.activePlayer === 'white'}
           finished={state.finished}
           onAdd={(points) => handleAdd('white', points)}
-          onEndTurn={() => handleEndTurn('white')}
+          onPassTurn={(points) => handlePassTurn('white', points)}
           onRename={(name) => dispatch({ type: 'RENAME', player: 'white', name })}
         />
 
@@ -116,7 +116,14 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
             left={clock.left}
             running={clock.running}
             voladaMala={state.voladaMala || clock.expired}
-            onRestart={() => dispatch({ type: 'CLEAR_VOLADA_MALA' })}
+            onStart={clock.start}
+            onRestart={() => {
+              dispatch({ type: 'CLEAR_VOLADA_MALA' })
+              clock.restart()
+            }}
+            onChangeDuration={(seconds) =>
+              dispatch({ type: 'SET_SHOT_CLOCK', seconds })
+            }
           />
 
           <div className="match__mesa" title="Precio de mesa">
@@ -149,7 +156,7 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
           active={state.activePlayer === 'yellow'}
           finished={state.finished}
           onAdd={(points) => handleAdd('yellow', points)}
-          onEndTurn={() => handleEndTurn('yellow')}
+          onPassTurn={(points) => handlePassTurn('yellow', points)}
           onRename={(name) =>
             dispatch({ type: 'RENAME', player: 'yellow', name })
           }

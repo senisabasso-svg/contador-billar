@@ -8,7 +8,7 @@ interface PlayerPanelProps {
   active: boolean
   finished: boolean
   onAdd: (points: number) => void
-  onEndTurn: () => void
+  onPassTurn: (pendingPoints: number | null) => void
   onRename: (name: string) => void
 }
 
@@ -18,7 +18,7 @@ export function PlayerPanel({
   active,
   finished,
   onAdd,
-  onEndTurn,
+  onPassTurn,
   onRename,
 }: PlayerPanelProps) {
   return (
@@ -66,7 +66,7 @@ export function PlayerPanel({
         player={player}
         disabled={!active || finished}
         onAdd={onAdd}
-        onEndTurn={onEndTurn}
+        onPassTurn={onPassTurn}
       />
     </section>
   )
