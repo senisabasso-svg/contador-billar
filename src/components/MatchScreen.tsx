@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { UseMatchReturn } from '../hooks/useMatch'
 import { useShotClock } from '../hooks/useShotClock'
 import type { PlayerId } from '../types'
@@ -11,7 +11,7 @@ interface MatchScreenProps {
 }
 
 export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
-  const { state, dispatch, canUndo } = match
+  const { state, dispatch, canUndo, canCloseSet, setLeader } = match
   const [confirmEnd, setConfirmEnd] = useState(false)
 
   const onExpire = useCallback(() => {
@@ -31,6 +31,28 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
       : state.winner === 'yellow'
         ? state.yellow.name
         : null
+
+  const lastSetName =
+    state.lastSetWinner === 'white'
+      ? state.white.name
+      : state.lastSetWinner === 'yellow'
+        ? state.yellow.name
+        : null
+
+  const leaderName =
+    setLeader === 'white'
+      ? state.white.name
+      : setLeader === 'yellow'
+        ? state.yellow.name
+        : null
+
+  useEffect(() => {
+    if (!state.lastSetWinner || state.finished) return
+    const id = window.setTimeout(() => {
+      dispatch({ type: 'DISMISS_SET_BANNER' })
+    }, 3200)
+    return () => window.clearTimeout(id)
+  }, [state.lastSetWinner, state.finished, state.setNumber, dispatch])
 
   const handleAdd = (player: PlayerId, points: number) => {
     if (state.activePlayer !== player || state.finished) return
@@ -88,6 +110,18 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
         </button>
       </header>
 
+      {state.lastSetWinner && !state.finished && lastSetName && (
+        <div className="match__set-banner" role="status">
+          Set {state.setNumber - 1} para <strong>{lastSetName}</strong>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'DISMISS_SET_BANNER' })}
+          >
+            Seguir
+          </button>
+        </div>
+      )}
+
       <div className="match__board">
         <PlayerPanel
           player="white"
@@ -105,6 +139,10 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
             <small>SETS</small>
             <span>{state.yellow.sets}</span>
           </div>
+          <p className="match__set-meta">
+            Set {state.setNumber} · a {state.config.pointsPerSet} pts · al mejor
+            de {state.config.setsToWin}
+          </p>
 
           <div className="match__entrada">
             <span>ENTRADAS</span>
@@ -133,11 +171,27 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
 
           <button
             type="button"
+            className={`match__close-set${canCloseSet ? ' is-ready' : ''}`}
+            onClick={() => dispatch({ type: 'CLOSE_SET' })}
+            disabled={!canCloseSet || state.finished}
+            title={
+              canCloseSet
+                ? `Cerrar set a favor de ${leaderName ?? 'líder'}`
+                : `Hace falta llegar a ${state.config.pointsPerSet} puntos`
+            }
+          >
+            {canCloseSet
+              ? `Cerrar set (${leaderName ?? '—'})`
+              : `Cerrar set (a ${state.config.pointsPerSet})`}
+          </button>
+
+          <button
+            type="button"
             className={`match__finalize${confirmEnd ? ' is-confirm' : ''}`}
             onClick={handleFinalize}
             disabled={state.finished}
           >
-            {confirmEnd ? '¿Confirmar fin?' : 'Finalizar'}
+            {confirmEnd ? '¿Cerrar partida?' : 'Finalizar partida'}
           </button>
           {confirmEnd && (
             <button
@@ -167,13 +221,15 @@ export function MatchScreen({ match, onNewMatch }: MatchScreenProps) {
         <div className="match__overlay">
           <div className="match__overlay-card">
             <p>Partida terminada</p>
-            <h2>{winnerName ? winnerName : 'Sin ganador declarado'}</h2>
+            <h2>{winnerName ? winnerName : 'Empate en sets'}</h2>
             <div className="match__overlay-scores">
               <span>
-                {state.white.name}: {state.white.score}
+                {state.white.name}: {state.white.sets} set
+                {state.white.sets === 1 ? '' : 's'}
               </span>
               <span>
-                {state.yellow.name}: {state.yellow.score}
+                {state.yellow.name}: {state.yellow.sets} set
+                {state.yellow.sets === 1 ? '' : 's'}
               </span>
             </div>
             <p className="match__overlay-mesa">Mesa ${state.config.tablePrice}</p>

@@ -13,6 +13,8 @@ const DEFAULT_CONFIG: MatchConfig = {
   yellowName: 'Jugador Amarillo',
   tablePrice: 100,
   shotClock: 40,
+  pointsPerSet: 50,
+  setsToWin: 2,
   starter: 'white',
 }
 

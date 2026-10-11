@@ -13,15 +13,30 @@ function createPlayer(name: string): PlayerState {
   }
 }
 
+function resetPlayerForNewSet(player: PlayerState): PlayerState {
+  return {
+    ...player,
+    score: 0,
+    plays: [],
+    maxSeries: 0,
+    lastPlay: null,
+  }
+}
+
 export function createMatch(config: MatchConfig): MatchSnapshot {
   const shotClock = Math.max(5, config.shotClock || SHOT_CLOCK_SECONDS)
+  const pointsPerSet = Math.max(1, config.pointsPerSet || 50)
+  const setsToWin = Math.max(1, config.setsToWin || 1)
+
   return {
     white: createPlayer(config.whiteName.trim() || 'Jugador Blanco'),
     yellow: createPlayer(config.yellowName.trim() || 'Jugador Amarillo'),
     activePlayer: config.starter,
     entrada: 1,
+    setNumber: 1,
     finished: false,
     winner: null,
+    lastSetWinner: null,
     voladaMala: false,
     turnKey: 0,
     config: {
@@ -30,12 +45,25 @@ export function createMatch(config: MatchConfig): MatchSnapshot {
       yellowName: config.yellowName.trim() || 'Jugador Amarillo',
       tablePrice: config.tablePrice,
       shotClock,
+      pointsPerSet,
+      setsToWin,
     },
   }
 }
 
 function otherPlayer(player: PlayerId): PlayerId {
   return player === 'white' ? 'yellow' : 'white'
+}
+
+export function canCloseSet(state: MatchSnapshot): boolean {
+  if (state.finished) return false
+  const target = state.config.pointsPerSet
+  return state.white.score >= target || state.yellow.score >= target
+}
+
+export function setLeader(state: MatchSnapshot): PlayerId | null {
+  if (state.white.score === state.yellow.score) return null
+  return state.white.score > state.yellow.score ? 'white' : 'yellow'
 }
 
 function addPoints(state: MatchSnapshot, points: number): MatchSnapshot {
@@ -54,6 +82,7 @@ function addPoints(state: MatchSnapshot, points: number): MatchSnapshot {
     ...state,
     [active]: player,
     voladaMala: false,
+    lastSetWinner: null,
   }
 }
 
@@ -68,6 +97,52 @@ function endTurn(state: MatchSnapshot): MatchSnapshot {
     ...state,
     activePlayer: nextPlayer,
     entrada,
+    voladaMala: false,
+    turnKey: state.turnKey + 1,
+  }
+}
+
+function closeSet(state: MatchSnapshot): MatchSnapshot {
+  if (state.finished || !canCloseSet(state)) return state
+
+  const leader = setLeader(state)
+  if (!leader) return state
+
+  const winnerPlayer = {
+    ...state[leader],
+    sets: state[leader].sets + 1,
+  }
+
+  // ¿Ganó la partida?
+  if (winnerPlayer.sets >= state.config.setsToWin) {
+    return {
+      ...state,
+      [leader]: winnerPlayer,
+      finished: true,
+      winner: leader,
+      lastSetWinner: leader,
+      voladaMala: false,
+    }
+  }
+
+  // Siguiente set: resetea marcador, mantiene sets
+  const nextStarter = otherPlayer(leader)
+  return {
+    ...state,
+    white:
+      leader === 'white'
+        ? resetPlayerForNewSet(winnerPlayer)
+        : resetPlayerForNewSet(state.white),
+    yellow:
+      leader === 'yellow'
+        ? resetPlayerForNewSet(winnerPlayer)
+        : resetPlayerForNewSet(state.yellow),
+    activePlayer: nextStarter,
+    entrada: 1,
+    setNumber: state.setNumber + 1,
+    finished: false,
+    winner: null,
+    lastSetWinner: leader,
     voladaMala: false,
     turnKey: state.turnKey + 1,
   }
@@ -100,23 +175,25 @@ function matchReducer(state: MatchSnapshot, action: MatchAction): MatchSnapshot 
         voladaMala: false,
       }
     }
+    case 'CLOSE_SET':
+      return closeSet(state)
+    case 'DISMISS_SET_BANNER':
+      return { ...state, lastSetWinner: null }
     case 'FINISH': {
+      // Cierra la PARTIDA (no un set). Gana quien tenga más sets.
       if (state.finished) return state
       let winner: PlayerId | null = null
-      if (state.white.score > state.yellow.score) winner = 'white'
+      if (state.white.sets > state.yellow.sets) winner = 'white'
+      else if (state.yellow.sets > state.white.sets) winner = 'yellow'
+      else if (state.white.score > state.yellow.score) winner = 'white'
       else if (state.yellow.score > state.white.score) winner = 'yellow'
-      const next: MatchSnapshot = {
+      return {
         ...state,
         finished: true,
         winner,
+        lastSetWinner: null,
+        voladaMala: false,
       }
-      if (winner) {
-        next[winner] = {
-          ...next[winner],
-          sets: next[winner].sets + 1,
-        }
-      }
-      return next
     }
     case 'RENAME':
       return {
@@ -169,6 +246,7 @@ export function useMatch(initialConfig: MatchConfig) {
         action.type === 'ADD_POINTS' ||
         action.type === 'END_TURN' ||
         action.type === 'COMMIT_AND_END_TURN' ||
+        action.type === 'CLOSE_SET' ||
         action.type === 'FINISH' ||
         action.type === 'VOLADA_MALA'
 
@@ -189,6 +267,8 @@ export function useMatch(initialConfig: MatchConfig) {
     dispatch,
     reset,
     canUndo: history.length > 1,
+    canCloseSet: canCloseSet(state),
+    setLeader: setLeader(state),
   }
 }
 

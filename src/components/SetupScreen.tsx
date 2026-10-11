@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import type { MatchConfig, PlayerId } from '../types'
-import { SHOT_CLOCK_PRESETS, SHOT_CLOCK_SECONDS, TABLE_PRICES } from '../types'
+import {
+  POINTS_PER_SET_PRESETS,
+  SETS_TO_WIN_PRESETS,
+  SHOT_CLOCK_PRESETS,
+  SHOT_CLOCK_SECONDS,
+  TABLE_PRICES,
+} from '../types'
 
 interface SetupScreenProps {
   onStart: (config: MatchConfig) => void
@@ -11,6 +17,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   const [yellowName, setYellowName] = useState('')
   const [tablePrice, setTablePrice] = useState<number>(TABLE_PRICES[2])
   const [shotClock, setShotClock] = useState(SHOT_CLOCK_SECONDS)
+  const [pointsPerSet, setPointsPerSet] = useState(50)
+  const [setsToWin, setSetsToWin] = useState(2)
   const [starter, setStarter] = useState<PlayerId>('white')
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -20,6 +28,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       yellowName: yellowName || 'Jugador Amarillo',
       tablePrice,
       shotClock: Math.max(5, shotClock),
+      pointsPerSet: Math.max(1, pointsPerSet),
+      setsToWin: Math.max(1, setsToWin),
       starter,
     })
   }
@@ -30,7 +40,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
       <form className="setup__card" onSubmit={handleSubmit}>
         <h1 className="setup__title">Nueva partida</h1>
         <p className="setup__subtitle">
-          Configurá jugadores, precio de mesa y tiempo de volada. El reloj no
+          Configurá jugadores, puntos por set y tiempo de volada. El reloj no
           corre hasta que pulses Iniciar tiempo.
         </p>
 
@@ -57,6 +67,58 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             />
           </label>
         </div>
+
+        <fieldset className="setup__fieldset">
+          <legend>Puntos para cerrar un set</legend>
+          <div className="setup__presets">
+            {POINTS_PER_SET_PRESETS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={
+                  pointsPerSet === value
+                    ? 'setup__chip setup__chip--active'
+                    : 'setup__chip'
+                }
+                onClick={() => setPointsPerSet(value)}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+          <label className="setup__field setup__field--inline">
+            <span>Personalizado</span>
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={pointsPerSet}
+              onChange={(e) =>
+                setPointsPerSet(Math.max(1, Number(e.target.value) || 1))
+              }
+            />
+          </label>
+        </fieldset>
+
+        <fieldset className="setup__fieldset">
+          <legend>Sets para ganar la partida</legend>
+          <div className="setup__presets">
+            {SETS_TO_WIN_PRESETS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={
+                  setsToWin === value
+                    ? 'setup__chip setup__chip--active'
+                    : 'setup__chip'
+                }
+                onClick={() => setSetsToWin(value)}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset className="setup__fieldset">
           <legend>Precio de mesa</legend>
